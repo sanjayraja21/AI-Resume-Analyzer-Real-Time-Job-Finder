@@ -5,6 +5,8 @@ AI Resume Analyzer + Real-Time Job Finder is an AI automation workflow that anal
 
 The workflow automates the job-search process using AI and n8n.
 
+Automates: resume upload → AI resume analysis → real-time job search → AI job ranking → Gmail notification of matches.
+
 Instead of manually reading a resume and searching for jobs, the system:
 
 1. Collects the candidate's information and resume.
