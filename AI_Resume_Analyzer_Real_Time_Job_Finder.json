@@ -1,0 +1,625 @@
+{
+  "name": "AI Resume Analyzer + Real-Time Job Finder",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "AI Resume Analyzer + Real-Time Job Finder",
+        "formDescription": "To automate the complete process of resume analysis → job matching → real-time vacancy search → job ranking → Gmail notification using an AI agent and n8n workflows.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Name",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Email ",
+              "fieldType": "email",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Preferred Job Role",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Preferred Location",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Work Mode",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Remote"
+                  },
+                  {
+                    "option": "Hybrid"
+                  },
+                  {
+                    "option": "On-site"
+                  },
+                  {
+                    "option": "Any"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Experience Level",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Fresher"
+                  },
+                  {
+                    "option": "Entry Level"
+                  },
+                  {
+                    "option": "1–2 Years"
+                  },
+                  {
+                    "option": "3–5 Years"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Upload Resume",
+              "fieldType": "file",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        4256,
+        3840
+      ],
+      "id": "***",
+      "name": "On form submission",
+      "webhookId": "***"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "Upload_Resume",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        4480,
+        3840
+      ],
+      "id": "***",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze the following candidate resume and return a structured resume profile.\n\nRESUME:\n{{ $json.text }}\n\nExtract:\n1. candidate_name\n2. email\n3. education\n4. technical_skills (array)\n5. work_experience\n6. projects\n7. certifications\n8. key_strengths (array)\n9. weak_skills (array)\n10. suitable_job_roles (array, ranked by best fit first)\n\nRules:\n- Use only information found in the resume.\n- Do not invent information.\n- If information is not available, write \"Not mentioned\".\n- Return ONLY the structured JSON, nothing else.",
+        "hasOutputParser": true,
+        "needsFallback": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        4704,
+        3840
+      ],
+      "id": "***",
+      "name": "AI Agent - Resume Analyzer"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.5-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        4704,
+        4048
+      ],
+      "id": "***",
+      "name": "Google Gemini Chat Model - Resume Fallback",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "***",
+          "name": "***"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.6-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        4576,
+        4048
+      ],
+      "id": "***",
+      "name": "Google Gemini Chat Model",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 15000,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "***",
+          "name": "***"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"candidate_name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"education\": \"B.Tech in AI & DS\",\n  \"technical_skills\": [\"Python\", \"SQL\", \"n8n\"],\n  \"work_experience\": \"Not mentioned\",\n  \"projects\": \"Resume analyzer bot\",\n  \"certifications\": \"Not mentioned\",\n  \"key_strengths\": [\"Machine Learning\", \"Data Analysis\"],\n  \"weak_skills\": [\"Cloud Deployment\"],\n  \"suitable_job_roles\": [\"AI Engineer\", \"Data Analyst\"]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        4960,
+        4064
+      ],
+      "id": "***",
+      "name": "Resume Schema Parser"
+    },
+    {
+      "parameters": {
+        "url": "=https://remotive.com/api/remote-jobs",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "search",
+              "value": "={{ $json.output.suitable_job_roles[0] || $('On form submission').item.json['Preferred Job Role'] }}"
+            },
+            {
+              "name": "limit",
+              "value": "10"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        5072,
+        3840
+      ],
+      "id": "***",
+      "name": "HTTP Request - Remotive Job Search"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "jobs",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        5216,
+        3840
+      ],
+      "id": "***",
+      "name": "Split Out Jobs"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        5440,
+        3504
+      ],
+      "id": "***",
+      "name": "Loop Over Jobs"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Compare this candidate profile against the job listing below and score the match.\n\nCANDIDATE PROFILE:\n{{ JSON.stringify($('AI Agent - Resume Analyzer').item.json.output) }}\n\nJOB LISTING:\nTitle: {{ $json.title }}\nCompany: {{ $json.company_name }}\nLocation: {{ $json.candidate_required_location }}\nDescription: {{ $json.description }}\nSalary: {{ $json.salary }}\n\nReturn:\n1. match_score (0-100)\n2. match_summary (1-2 sentences)\n3. matching_skills (array)\n4. missing_skills (array)\n\nReturn ONLY the structured JSON, nothing else.",
+        "hasOutputParser": true,
+        "needsFallback": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        5632,
+        3424
+      ],
+      "id": "***",
+      "name": "AI Agent - Job Ranker"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const original = $('Split Out Jobs').item.json;\nreturn {\n  json: {\n    title: original.title,\n    company_name: original.company_name,\n    candidate_required_location: original.candidate_required_location,\n    url: original.url,\n    output: $json.output\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6048,
+        3424
+      ],
+      "id": "***",
+      "name": "Merge Job + Ranking"
+    },
+    {
+      "parameters": {
+        "amount": 15
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        6288,
+        3424
+      ],
+      "id": "***",
+      "name": "Wait Between Rankings",
+      "webhookId": "***"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.5-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        5680,
+        3680
+      ],
+      "id": "***",
+      "name": "Google Gemini Chat Model - Ranker Fallback",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "***",
+          "name": "***"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.6-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        5440,
+        3696
+      ],
+      "id": "***",
+      "name": "Google Gemini Chat Model1",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 15000,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "***",
+          "name": "***"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"match_score\": 82,\n  \"match_summary\": \"Strong fit based on Python and ML skills.\",\n  \"matching_skills\": [\"Python\", \"Machine Learning\"],\n  \"missing_skills\": [\"AWS\"]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        6016,
+        3696
+      ],
+      "id": "***",
+      "name": "Job Ranking Schema Parser"
+    },
+    {
+      "parameters": {
+        "sortFieldsUi": {
+          "sortField": [
+            {
+              "fieldName": "output.match_score",
+              "order": "descending"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.sort",
+      "typeVersion": 1,
+      "position": [
+        5936,
+        3840
+      ],
+      "id": "***",
+      "name": "Sort by Match Score"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "topJobs",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        6192,
+        3840
+      ],
+      "id": "***",
+      "name": "Aggregate Top Jobs"
+    },
+    {
+      "parameters": {
+        "jsCode": "const jobs = items[0].json.topJobs || [];\n\nconst rows = jobs.map((j) => {\n  const job = j.json ? j.json : j;\n  const jobInfo = job.output ? job : { output: {} };\n  const listing = job;\n  return `\n    <tr>\n      <td style=\"padding:8px;border:1px solid #ddd;\">${listing.title || 'Untitled role'}</td>\n      <td style=\"padding:8px;border:1px solid #ddd;\">${listing.company_name || 'N/A'}</td>\n      <td style=\"padding:8px;border:1px solid #ddd;\">${listing.candidate_required_location || 'Remote'}</td>\n      <td style=\"padding:8px;border:1px solid #ddd;\">${jobInfo.output.match_score ?? 'N/A'}</td>\n      <td style=\"padding:8px;border:1px solid #ddd;\">${jobInfo.output.match_summary ?? ''}</td>\n      <td style=\"padding:8px;border:1px solid #ddd;\"><a href=\"${listing.url || '#'}\">Apply</a></td>\n    </tr>`;\n}).join('');\n\nconst html = `\n  <h2>Your Job Matches</h2>\n  <table style=\"border-collapse:collapse;width:100%;\">\n    <tr style=\"background:#f2f2f2;\">\n      <th style=\"padding:8px;border:1px solid #ddd;\">Title</th>\n      <th style=\"padding:8px;border:1px solid #ddd;\">Company</th>\n      <th style=\"padding:8px;border:1px solid #ddd;\">Location</th>\n      <th style=\"padding:8px;border:1px solid #ddd;\">Match %</th>\n      <th style=\"padding:8px;border:1px solid #ddd;\">Why it fits</th>\n      <th style=\"padding:8px;border:1px solid #ddd;\">Link</th>\n    </tr>\n    ${rows}\n  </table>`;\n\nreturn [{ json: { emailHtml: html } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6416,
+        3840
+      ],
+      "id": "***",
+      "name": "Format Email HTML"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('On form submission').item.json['Email '] }}",
+        "subject": "=Your Job Matches for {{ $('On form submission').item.json['Preferred Job Role'] }}",
+        "message": "={{ $json.emailHtml }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        6640,
+        3840
+      ],
+      "id": "***",
+      "name": "Send Job Matches Email",
+      "webhookId": "***",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "***",
+          "name": "***"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "AI Agent - Resume Analyzer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent - Resume Analyzer": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - Remotive Job Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent - Resume Analyzer",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model - Resume Fallback": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent - Resume Analyzer",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Resume Schema Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent - Resume Analyzer",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Remotive Job Search": {
+      "main": [
+        [
+          {
+            "node": "Split Out Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out Jobs": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Jobs": {
+      "main": [
+        [
+          {
+            "node": "Sort by Match Score",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent - Job Ranker",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent - Job Ranker": {
+      "main": [
+        [
+          {
+            "node": "Merge Job + Ranking",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Job + Ranking": {
+      "main": [
+        [
+          {
+            "node": "Wait Between Rankings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Between Rankings": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent - Job Ranker",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model - Ranker Fallback": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent - Job Ranker",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Job Ranking Schema Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent - Job Ranker",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sort by Match Score": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Top Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Top Jobs": {
+      "main": [
+        [
+          {
+            "node": "Format Email HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Email HTML": {
+      "main": [
+        [
+          {
+            "node": "Send Job Matches Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "***",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "***"
+  },
+  "nodeGroups": [],
+  "id": "***",
+  "tags": []
+}
